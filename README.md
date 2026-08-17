@@ -38,12 +38,25 @@ Then tell it how to reach Bridge — either environment variables or a config fi
   "user": "you@proton.me",
   "pass": "your-bridge-generated-password",
   "imapPort": 1143,
-  "smtpPort": 1025
+  "smtpPort": 1025,
+  "imapSecurity": "STARTTLS",
+  "smtpSecurity": "STARTTLS"
 }
 ```
 
+Copy **all** of these from Bridge → your account → **Mailbox details** (the panel with IMAP and SMTP
+columns). Two things people get wrong:
+
+- **Copy the password, don't type it.** Use Bridge's copy button. A single mis-transcribed character
+  (an `l` vs `I`, an `O` vs `0`) fails as `"no such user"` — see Troubleshooting.
+- **Match the `Security` field for *each* of IMAP and SMTP — they can differ.** Bridge shows a
+  Security value under both columns (`STARTTLS` or `SSL`), and on some setups IMAP is STARTTLS while
+  SMTP is SSL. Set `imapSecurity`/`smtpSecurity` to exactly what Bridge shows, or **sending can fail
+  even though reading works.**
+
 **Or environment variables:** `PROTONMAIL_USER`, `PROTONMAIL_PASS`, `PROTONMAIL_IMAP_PORT`,
-`PROTONMAIL_SMTP_PORT`. (Copy `config.example.json` for the full set of options.)
+`PROTONMAIL_SMTP_PORT`, `PROTONMAIL_IMAP_SECURITY`, `PROTONMAIL_SMTP_SECURITY`. (See
+`config.example.json` for every option, including `downloadDir` and `readOnly`.)
 
 Check it works before wiring it into an agent:
 
@@ -131,6 +144,23 @@ MCP client (Claude Code / Cursor / …)
 Bridge presents a self-signed cert on localhost (expected); this trusts it by default for
 `127.0.0.1`. Set `"allowSelfSigned": false` to enforce full verification if you've given Bridge a
 trusted cert.
+
+## Troubleshooting
+
+Run `npx proton-mail-bridge-mcp doctor` first — it names the actual failure. Common ones:
+
+- **`no such user`** — Bridge reports **every** auth failure this way, including a **wrong password**.
+  It almost never means the username is genuinely unknown. Re-copy *both* username and password from
+  Bridge → Mailbox details (copy buttons, don't type), and double-check for `l`/`I` and `O`/`0` mix-ups.
+- **Reading works but sending fails** — your SMTP `Security` is probably `SSL` while you've left
+  `smtpSecurity` at `STARTTLS` (or vice-versa). Set `imapSecurity`/`smtpSecurity` to exactly what
+  Bridge shows under each column.
+- **`too many login attempts`** — Bridge rate-limits repeated logins; it resets after a few minutes of
+  quiet. Stop retrying, wait, try once. (Restarting Bridge also resets it.)
+- **Nothing connects / `connection refused`** — Bridge isn't running, or is mid-sync. Start it, let the
+  first sync finish (the progress bar must reach 100%), then try.
+- **Just added the account and it won't authenticate** — let the initial sync complete, and if it
+  still refuses, quit Bridge fully and reopen it once.
 
 ## Licence
 
