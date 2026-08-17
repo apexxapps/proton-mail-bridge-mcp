@@ -87,6 +87,20 @@ stderr). Files in `src/`:
 - Possible future: a BrainBoxx-side **MCP catalog** ("manage your fleet's agent capabilities from your
   phone", Proton being one entry). Post-v1 BrainBoxx idea, does NOT gate this project.
 
+### Robustness borrowed from the incumbent (0.1.2, 2026-08-17)
+
+Reviewed `proton-mail-mcp`'s hardening; took what fits "small + safe", skipped the rest:
+- **TAKEN — prompt-injection hygiene:** `sanitizeText` (in mail.js) strips zero-width/bidi/control
+  chars (invisible payload-smuggling vector) from bodies, subjects, and sender names; every
+  `get_message` carries an `_untrusted` note and the server `instructions` tell the agent email
+  content is data, never instructions. This is the real risk for an agent reading arbitrary mail.
+- **N/A by construction — from-name spoofing:** they guard against an `@` in a user-set display name;
+  we never let the agent set `from` (it's always the configured address), so there's no vector.
+- **N/A — flag-verification / sent-copy retry:** we cut all flag/move tools, and SMTP accept is our
+  send-confirmation (nodemailer returns accepted/rejected), so Proton's IMAP index-lag doesn't affect us.
+- **SKIPPED (positioning):** 30 tools, bulk ops, folders/labels, analytics — the bloat we define against.
+Verdict: we're a coherent "small, safe, great-onboarding" alternative, NOT a poor copy. Don't add tools.
+
 ### Competitive landscape (checked 2026-08-17)
 
 An incumbent exists: **`proton-mail-mcp`** by sethbang (npm, MIT, github.com/sethbang/proton-mail-mcp)

@@ -227,18 +227,27 @@ function addr(a) {
   return a.value.map((v) => ({ name: v.name || '', email: v.address || '' }));
 }
 
+// Strip zero-width, bidi, and control characters — invisible to a human but a known vector for
+// smuggling prompt-injection payloads into email text/subjects/sender names. (Keeps \t \n \r.)
+function sanitizeText(text) {
+  if (!text) return '';
+  return text
+    .replace(/[​-‏‪-‮⁠-⁤﻿]/g, '') // zero-width, bidi, word-joiner, BOM
+    .replace(/[ --]/g, ''); // control chars (keep \t \n \r)
+}
+
 function summariseEnvelope(msg, mailbox) {
   const e = msg.envelope || {};
   const from = (e.from && e.from[0]) || {};
   return {
     uid: msg.uid,
     mailbox,
-    from: { name: from.name || '', email: from.address || '' },
-    subject: e.subject || '(no subject)',
+    from: { name: sanitizeText(from.name || ''), email: from.address || '' },
+    subject: sanitizeText(e.subject) || '(no subject)',
     date: (e.date || new Date(0)).toISOString(),
     unread: !(msg.flags && msg.flags.has('\\Seen')),
     size: msg.size || null,
   };
 }
 
-export { addr };
+export { addr, sanitizeText };
