@@ -21,7 +21,7 @@ async function main() {
   }
 
   const server = new McpServer(
-    { name: 'proton-mail-bridge-mcp', version: '0.1.0' },
+    { name: 'proton-mail-bridge-mcp', version: '0.1.1' },
     {
       instructions:
         'Access the user\'s ProtonMail. Reading and searching is safe to do freely. Sending, ' +
@@ -39,8 +39,10 @@ async function main() {
   );
 }
 
-// `proton-mail-bridge-mcp doctor` runs the human-facing preflight; otherwise start the stdio server.
-const entry = process.argv[2] === 'doctor' ? () => import('./doctor.js') : main;
+// Subcommands: `setup` (interactive first-run wizard) and `doctor` (connection preflight) run instead
+// of the stdio server; anything else starts the server.
+const cmd = process.argv[2];
+const entry = cmd === 'setup' ? () => import('./setup.js') : cmd === 'doctor' ? () => import('./doctor.js') : main;
 entry().catch((err) => {
   process.stderr.write(`[proton-mail-bridge-mcp] fatal: ${err.stack || err.message}\n`);
   process.exit(1);

@@ -63,6 +63,12 @@ stderr). Files in `src/`:
   `format.js htmlToText` fallback so `get_message` isn't blank on HTML-only messages.
   Deliberately CUT (do NOT re-add without Simon — "plain and simple" is the positioning): mark
   read/unread, move/archive/trash, folders/labels, bulk ops, analytics, threads.
+- **`setup.js`** — `npx proton-mail-bridge-mcp setup`: interactive first-run wizard (the onboarding
+  differentiator vs the incumbent). Mirrors Bridge's Mailbox details panel field-for-field so users
+  paste via Bridge's copy buttons; masked password prompt (TTY only); tests IMAP **and** SMTP
+  (`verifySmtp`, timeout-guarded) before saving via `saveConfig` (0600). Wired as an argv branch in
+  `index.js` alongside `doctor`. ⚠️ Testing note: piped stdin drops buffered readline lines between
+  questions — test with paced input or a pty, not a bare `printf | node`.
 - **`doctor.js`** — `npx proton-mail-bridge-mcp doctor`: human-facing preflight. Connects, authenticates,
   lists mailboxes → setup problems surface here with a clear message, not mid-conversation. (Wire the
   `doctor` subcommand as an argv branch in `index.js` if we want `proton-mail-bridge-mcp doctor` rather than

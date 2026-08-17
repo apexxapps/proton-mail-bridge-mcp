@@ -95,4 +95,14 @@ export function assertConfigured(cfg) {
   }
 }
 
+// Write a config object to the config file (creating the directory). The file holds a Bridge password,
+// so it's written owner-read/write only (0600).
+export function saveConfig(obj) {
+  const p = configFilePath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(obj, null, 2) + '\n', { mode: 0o600 });
+  fs.chmodSync(p, 0o600); // enforce even if the file pre-existed with looser perms
+  return p;
+}
+
 export { configFilePath };

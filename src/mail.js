@@ -204,6 +204,22 @@ export async function sendMail(cfg, message) {
   return { messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
 }
 
+// Check SMTP is reachable + accepts our credentials WITHOUT sending anything. Catches the classic
+// "reading works but sending fails" mismatch (wrong smtpSecurity) at setup time. A wrong security
+// setting can hang the handshake, so we race it against a timeout rather than block forever.
+export async function verifySmtp(cfg, timeoutMs = 12000) {
+  const transport = smtpTransport(cfg);
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('SMTP handshake timed out — check the SMTP security setting (STARTTLS vs SSL).')), timeoutMs)
+  );
+  try {
+    await Promise.race([transport.verify(), timeout]);
+    return true;
+  } finally {
+    transport.close();
+  }
+}
+
 // --- helpers --------------------------------------------------------------------------------------
 
 function addr(a) {

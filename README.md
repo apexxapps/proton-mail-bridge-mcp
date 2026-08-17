@@ -24,12 +24,24 @@ You need **[Proton Bridge](https://proton.me/mail/bridge)** running on the same 
 
 ## Install
 
+**Quickest — run the setup wizard.** It mirrors Bridge's *Mailbox details* panel field-for-field
+(paste each value using Bridge's copy buttons), tests reading **and** sending, and writes the config:
+
 ```bash
-# Claude Code — one line, no global install:
+npx proton-mail-bridge-mcp setup
+```
+
+Then register it with your MCP client, e.g. Claude Code:
+
+```bash
 claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp
 ```
 
-Then tell it how to reach Bridge — either environment variables or a config file.
+That's it. Prefer to configure by hand instead of the wizard? Read on.
+
+### Manual configuration
+
+Tell it how to reach Bridge — either environment variables or a config file.
 
 **Config file** (`~/.config/proton-mail-bridge-mcp/config.json`):
 
