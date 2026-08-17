@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-// `protonmail-mcp doctor` — a human-facing preflight. Checks that config exists and that Bridge is
+// `proton-mail-bridge-mcp doctor` — a human-facing preflight. Checks that config exists and that Bridge is
 // actually reachable + accepting the credentials, so setup problems surface HERE with a clear message
 // instead of as a cryptic failure inside an agent's tool call. Prints to stdout (this is not the MCP
 // server — it's a CLI check), exits non-zero on failure.
 
 import { loadConfig, assertConfigured, configFilePath } from './config.js';
-import { withImap, listMailboxes } from './mail.js';
+import { withImap, listMailboxes, describeImapError } from './mail.js';
 
 async function main() {
   const cfg = loadConfig();
-  console.log('protonmail-mcp doctor\n');
+  console.log('proton-mail-bridge-mcp doctor\n');
   console.log(`  config file:  ${configFilePath()}`);
   console.log(`  host:         ${cfg.host}`);
   console.log(`  imap port:    ${cfg.imapPort}`);
@@ -32,10 +32,10 @@ async function main() {
     console.log('ok');
     console.log(`  ✓ authenticated — ${boxes.length} mailboxes visible.\n`);
     console.log('  You\'re good. Register it with your MCP client, e.g. Claude Code:');
-    console.log('    claude mcp add protonmail --scope user -- npx -y protonmail-mcp\n');
+    console.log('    claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp\n');
   } catch (err) {
     console.log('failed');
-    console.error(`  ✗ ${err.message}`);
+    console.error(`  ✗ ${describeImapError(err)}`);
     console.error('\n  Common causes:');
     console.error('    • Proton Bridge isn\'t running (start the Bridge app / `protonmail-bridge --cli`).');
     console.error('    • Wrong credentials — copy them from Bridge → account → Mailbox details,');

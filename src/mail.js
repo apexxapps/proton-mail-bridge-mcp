@@ -10,18 +10,20 @@ import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import { simpleParser } from 'mailparser';
 
-// Well-known Proton mailbox names. Proton localises the display but Bridge exposes these paths.
+// The two Proton mailboxes this tool touches. Everything defaults to reading INBOX; composed drafts
+// land in Drafts. (Proton localises the display names but Bridge exposes these canonical paths.)
 export const MAILBOX = {
   inbox: 'INBOX',
-  archive: 'Archive',
-  trash: 'Trash',
-  spam: 'Spam',
-  sent: 'Sent',
   drafts: 'Drafts',
 };
 
 function tlsOpts(cfg) {
   return { rejectUnauthorized: !cfg.allowSelfSigned };
+}
+
+// "SSL" = implicit TLS from the first byte; anything else (STARTTLS) = connect plain then upgrade.
+function isImplicitTls(security) {
+  return String(security).toUpperCase() === 'SSL';
 }
 
 // --- IMAP -----------------------------------------------------------------------------------------
@@ -30,22 +32,40 @@ function imapClient(cfg) {
   return new ImapFlow({
     host: cfg.host,
     port: cfg.imapPort,
-    secure: false, // Bridge uses STARTTLS on 1143; imapflow upgrades automatically
+    secure: isImplicitTls(cfg.imapSecurity), // STARTTLS (default): false → imapflow upgrades in-band
     auth: { user: cfg.user, pass: cfg.pass },
     tls: tlsOpts(cfg),
     logger: false,
     emitLogs: false,
+    // Fail fast instead of hanging if Bridge is mid-sync and not answering.
+    greetingTimeout: 10000,
+    socketTimeout: 30000,
   });
+}
+
+// imapflow flattens most failures to "Command failed" — dig out the useful bits (the server's NO
+// text, whether it was an auth rejection) so callers can give a real diagnosis.
+export function describeImapError(err) {
+  const parts = [];
+  if (err.authenticationFailed) parts.push('authentication rejected by Bridge');
+  const server = err.responseText || err.response || (err.serverResponseCode ? `code ${err.serverResponseCode}` : '');
+  if (server) parts.push(`server said: "${String(server).trim()}"`);
+  if (!parts.length) parts.push(err.message || String(err));
+  return parts.join(' — ');
 }
 
 // Run `fn(client)` against a freshly-connected IMAP client, always closing it afterwards.
 export async function withImap(cfg, fn) {
   const client = imapClient(cfg);
+  // imapflow emits an 'error' event on socket faults (e.g. a timeout during teardown). Node throws
+  // on an unhandled 'error' event and would crash the whole process — swallow it here, since real
+  // failures already surface as rejected promises from connect()/fn() that our callers catch.
+  client.on('error', () => {});
   await client.connect();
   try {
     return await fn(client);
   } finally {
-    await client.logout().catch(() => client.close());
+    await client.logout().catch(() => client.close().catch(() => {}));
   }
 }
 
@@ -118,26 +138,29 @@ export async function getMessage(cfg, { uid, mailbox = MAILBOX.inbox }) {
   });
 }
 
-export async function setSeen(cfg, { uid, mailbox = MAILBOX.inbox }, seen) {
-  return withMailbox(cfg, mailbox, async (client) => {
-    if (seen) await client.messageFlagsAdd([uid], ['\\Seen'], { uid: true });
-    else await client.messageFlagsRemove([uid], ['\\Seen'], { uid: true });
-    return true;
-  });
-}
+// Fetch one attachment's bytes. Selection: by exact filename, else by 0-based index, else — if the
+// message has exactly one attachment — that one. Returns the raw Buffer plus its name/type for the
+// caller to write to disk.
+export async function fetchAttachment(cfg, { uid, mailbox = MAILBOX.inbox, filename, index }) {
+  const { parsed } = await getMessage(cfg, { uid, mailbox });
+  const atts = parsed.attachments || [];
+  if (atts.length === 0) throw new Error(`Message ${uid} has no attachments.`);
 
-export async function moveMessage(cfg, { uid, mailbox = MAILBOX.inbox, target }) {
-  return withMailbox(cfg, mailbox, async (client) => {
-    await client.messageMove([uid], target, { uid: true });
-    return true;
-  });
-}
+  let att;
+  if (filename) att = atts.find((a) => (a.filename || '') === filename);
+  else if (Number.isInteger(index)) att = atts[index];
+  else if (atts.length === 1) att = atts[0];
 
-// "Delete" for Proton = move to Trash (a real expunge is destructive and rarely what you want from
-// an agent). Trash itself has its own retention.
-export async function trashMessage(cfg, { uid, mailbox = MAILBOX.inbox }) {
-  if (mailbox === MAILBOX.trash) return true; // already there
-  return moveMessage(cfg, { uid, mailbox, target: MAILBOX.trash });
+  if (!att) {
+    const names = atts.map((a, i) => `[${i}] ${a.filename || '(unnamed)'}`).join(', ');
+    throw new Error(`Couldn't pick an attachment — specify filename or index. Available: ${names}`);
+  }
+  return {
+    filename: att.filename || `attachment-${uid}`,
+    contentType: att.contentType || 'application/octet-stream',
+    content: att.content, // Buffer
+    size: att.size || (att.content ? att.content.length : 0),
+  };
 }
 
 export async function appendDraft(cfg, rawMime) {
@@ -150,11 +173,12 @@ export async function appendDraft(cfg, rawMime) {
 // --- SMTP -----------------------------------------------------------------------------------------
 
 function smtpTransport(cfg) {
+  const ssl = isImplicitTls(cfg.smtpSecurity);
   return nodemailer.createTransport({
     host: cfg.host,
     port: cfg.smtpPort,
-    secure: false, // Bridge uses STARTTLS on 1025
-    requireTLS: true,
+    secure: ssl, // SSL → implicit TLS; STARTTLS → false + requireTLS upgrades in-band
+    requireTLS: !ssl,
     auth: { user: cfg.user, pass: cfg.pass },
     tls: tlsOpts(cfg),
   });

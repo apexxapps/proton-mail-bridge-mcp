@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// protonmail-mcp — an MCP server exposing your ProtonMail (via a local Proton Bridge) to any
+// proton-mail-bridge-mcp — an MCP server exposing your ProtonMail (via a local Proton Bridge) to any
 // MCP client (Claude Code, Claude Desktop, Cursor, …).
 //
 // It speaks MCP over stdio: the client spawns this process and talks JSON-RPC on stdin/stdout, so
@@ -17,11 +17,11 @@ async function main() {
   try {
     assertConfigured(cfg);
   } catch (err) {
-    process.stderr.write(`[protonmail-mcp] ${err.message}\n`);
+    process.stderr.write(`[proton-mail-bridge-mcp] ${err.message}\n`);
   }
 
   const server = new McpServer(
-    { name: 'protonmail-mcp', version: '0.1.0' },
+    { name: 'proton-mail-bridge-mcp', version: '0.1.0' },
     {
       instructions:
         'Access the user\'s ProtonMail. Reading and searching is safe to do freely. Sending, ' +
@@ -35,13 +35,13 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write(
-    `[protonmail-mcp] ready (${cfg.readOnly ? 'read-only' : 'read+write'}) via ${cfg.host}:${cfg.imapPort}\n`
+    `[proton-mail-bridge-mcp] ready (${cfg.readOnly ? 'read-only' : 'read+write'}) via ${cfg.host}:${cfg.imapPort}\n`
   );
 }
 
-// `protonmail-mcp doctor` runs the human-facing preflight; otherwise start the stdio server.
+// `proton-mail-bridge-mcp doctor` runs the human-facing preflight; otherwise start the stdio server.
 const entry = process.argv[2] === 'doctor' ? () => import('./doctor.js') : main;
 entry().catch((err) => {
-  process.stderr.write(`[protonmail-mcp] fatal: ${err.stack || err.message}\n`);
+  process.stderr.write(`[proton-mail-bridge-mcp] fatal: ${err.stack || err.message}\n`);
   process.exit(1);
 });

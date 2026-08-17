@@ -1,4 +1,4 @@
-# protonmail-mcp
+# proton-mail-bridge-mcp
 
 ## What this is
 
@@ -35,7 +35,7 @@ stderr). Files in `src/`:
   connects `StdioServerTransport`. Does NOT hard-fail on missing config (so the client can still list
   tools); individual tool calls throw a helpful error if unconfigured.
 - **`config.js`** — loads config. Precedence: `PROTONMAIL_*` env → JSON file
-  (`$PROTONMAIL_MCP_CONFIG` or `~/.config/protonmail-mcp/config.json`) → Bridge defaults.
+  (`$PROTONMAIL_MCP_CONFIG` or `~/.config/proton-mail-bridge-mcp/config.json`) → Bridge defaults.
   `assertConfigured` gives the friendly "you're missing X" error.
 - **`mail.js`** — the only place that touches Bridge. **Connect-per-operation** (imapflow client
   built, connected, used, logged out each call) — deliberate: sporadic MCP calls + a parked IMAP
@@ -46,20 +46,28 @@ stderr). Files in `src/`:
 - **`format.js`** — `cleanMessage` turns parsed MIME into tidy JSON for an LLM; `stripQuoted` trims
   quoted reply history + `-- ` signatures so summaries don't drown in forwarded chains (pass
   `full:true` to keep everything).
-- **`tools.js`** — the MCP tool surface. **Two tiers:** READ (always registered) vs WRITE (skipped
-  entirely when `readOnly`). `guard()` wraps every handler so a throw becomes a clean MCP error, not a
-  dead server. The dangerous tools (`send_message`, `trash_message`, `reply_to_message` with
-  `send=true`) are *named + described* so the client's per-tool approval is the gate — we don't
-  reinvent approval, we make the sharp tools obvious. `reply_to_message` **drafts by default**.
-- **`doctor.js`** — `npx protonmail-mcp doctor`: human-facing preflight. Connects, authenticates,
+- **`tools.js`** — the MCP tool surface. **Deliberately small: exactly 8 tools** (Simon's scope call,
+  2026-08-17 — the "plain and simple" niche vs the 30-tool incumbent `proton-mail-mcp`):
+  `search_mail` (no filter = recent inbox), `get_message`, `download_attachment`, `create_draft`,
+  `send_message`, `reply`, `reply_all`, `forward`. READ (first 3) always registered; WRITE (other 5)
+  skipped entirely when `readOnly` (→ 3 tools). `guard()` wraps every handler so a throw becomes a
+  clean MCP error, not a dead server. The sharp tools (send/reply/reply_all/forward) are *named +
+  described* so the client's per-tool approval is the gate — we don't reinvent approval, we make it
+  obvious. `reply`/`reply_all`/`forward` **send immediately unless `draft:true`** (→ Drafts).
+  **Outgoing attachments:** any write tool takes `attachments: [localPath]` — absolute or relative to
+  cwd, ~-expanded, read off disk via nodemailer (`attachLocal`); forward carries the original's
+  attachments as bytes too. The BrainBoxx angle: email a file straight out of the brain you're in.
+  Deliberately CUT (do NOT re-add without Simon — "plain and simple" is the positioning): mark
+  read/unread, move/archive/trash, folders/labels, bulk ops, analytics, threads.
+- **`doctor.js`** — `npx proton-mail-bridge-mcp doctor`: human-facing preflight. Connects, authenticates,
   lists mailboxes → setup problems surface here with a clear message, not mid-conversation. (Wire the
-  `doctor` subcommand as an argv branch in `index.js` if we want `protonmail-mcp doctor` rather than
+  `doctor` subcommand as an argv branch in `index.js` if we want `proton-mail-bridge-mcp doctor` rather than
   `npm run doctor` / a separate bin — currently it's `scripts.doctor` + standalone.)
 
 ## Positioning (Simon, 2026-08-17)
 
 - **Free + open source**, MIT. Goal: garner interest / goodwill in the MCP + Proton communities.
-- **Its own identity** — own repo, own npm name `protonmail-mcp`, optional own small website. NOT
+- **Its own identity** — own repo, own npm name `proton-mail-bridge-mcp`, optional own small website. NOT
   under the BrainBoxx brand. Naming decision: functional/descriptive beats funky for a *utility people
   find by searching the problem* — the whole MCP ecosystem names by function. `-mcp` is the broadest
   possible signal (works with ANY MCP client, not just Claude) — resist "claude"/"cli" in the name.
@@ -68,6 +76,19 @@ stderr). Files in `src/`:
   it. A soft, honest funnel, not a bundling.
 - Possible future: a BrainBoxx-side **MCP catalog** ("manage your fleet's agent capabilities from your
   phone", Proton being one entry). Post-v1 BrainBoxx idea, does NOT gate this project.
+
+### Competitive landscape (checked 2026-08-17)
+
+An incumbent exists: **`proton-mail-mcp`** by sethbang (npm, MIT, github.com/sethbang/proton-mail-mcp)
+— same stack (imapflow + nodemailer + MCP SDK, Bridge-dependent), but **30 tools** and heavily
+hardened (HTML sanitisation, dryRun previews, restrict-outbound-to-self, Proton search-lag handling,
+flag-verification, tests, CI-published). It's more mature than us on features.
+
+**Our deliberate differentiation = the OPPOSITE direction: plain and simple.** 5 tools, not 30. The
+"approachable ProtonMail MCP" — nicer onboarding (config file + `doctor` preflight, which theirs lacks
+— it's env-only). We do NOT chase feature parity; that's the whole point. If tempted to add tools,
+that's drift toward being a worse copy of the incumbent — resist. Simon: "I like plain and simple, I
+don't want 30 tools."
 
 ## Dev loop
 

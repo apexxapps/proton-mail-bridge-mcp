@@ -1,4 +1,4 @@
-# protonmail-mcp
+# proton-mail-bridge-mcp
 
 Give your AI coding agent access to your **ProtonMail** — search, read, draft, and send — from
 Claude Code, Claude Desktop, Cursor, or any [MCP](https://modelcontextprotocol.io) client.
@@ -26,12 +26,12 @@ You need **[Proton Bridge](https://proton.me/mail/bridge)** running on the same 
 
 ```bash
 # Claude Code — one line, no global install:
-claude mcp add protonmail --scope user -- npx -y protonmail-mcp
+claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp
 ```
 
 Then tell it how to reach Bridge — either environment variables or a config file.
 
-**Config file** (`~/.config/protonmail-mcp/config.json`):
+**Config file** (`~/.config/proton-mail-bridge-mcp/config.json`):
 
 ```json
 {
@@ -48,7 +48,7 @@ Then tell it how to reach Bridge — either environment variables or a config fi
 Check it works before wiring it into an agent:
 
 ```bash
-npx protonmail-mcp doctor
+npx proton-mail-bridge-mcp doctor
 ```
 
 That connects to Bridge, authenticates, and lists your mailboxes — so any setup problem shows up
@@ -56,7 +56,7 @@ here with a clear message instead of failing cryptically mid-conversation.
 
 ## Other MCP clients
 
-Any MCP client works — point it at the `protonmail-mcp` command over stdio. For a JSON-config client
+Any MCP client works — point it at the `proton-mail-bridge-mcp` command over stdio. For a JSON-config client
 (Claude Desktop, Cursor, …):
 
 ```json
@@ -64,7 +64,7 @@ Any MCP client works — point it at the `protonmail-mcp` command over stdio. Fo
   "mcpServers": {
     "protonmail": {
       "command": "npx",
-      "args": ["-y", "protonmail-mcp"],
+      "args": ["-y", "proton-mail-bridge-mcp"],
       "env": { "PROTONMAIL_USER": "you@proton.me", "PROTONMAIL_PASS": "…" }
     }
   }
@@ -73,37 +73,38 @@ Any MCP client works — point it at the `protonmail-mcp` command over stdio. Fo
 
 ## Tools
 
-**Read (safe — let the agent run these freely):**
+Deliberately small — eight, and only eight.
 
-| Tool | What it does |
-| --- | --- |
-| `list_mailboxes` | List folders/labels |
-| `list_recent_mail` | Newest messages in a mailbox (summaries) |
-| `get_unread_mail` | Unread messages (summaries) |
-| `search_mail` | Search by text / from / to / subject / date range |
-| `get_message` | Full message by uid (quoted history trimmed by default) |
+| Tool | What it does | |
+| --- | --- | --- |
+| `search_mail` | Find messages by text / from / to / subject / date (no filter = your recent inbox) | read |
+| `get_message` | Read one message in full (quoted history trimmed by default) | read |
+| `download_attachment` | Save an inbound attachment to disk (into your download directory) | read |
+| `create_draft` | Compose a new email, saved to Drafts — **never sends** | write |
+| `send_message` | Send a new email **immediately** | write |
+| `reply` | Reply to the sender, threaded and quoting the original | write |
+| `reply_all` | Reply to sender + everyone else (never you), threaded | write |
+| `forward` | Forward a message to new recipients, carrying its attachments | write |
 
-**Write (your MCP client should ask before running these):**
+Any outgoing tool (`create_draft` / `send_message` / `reply` / `reply_all` / `forward`) can attach
+**local files** by path — absolute, or relative to the working directory, so you can email a file
+straight out of the project you're working in (e.g. `attachments: ["./report.pdf"]`). `reply` /
+`reply_all` / `forward` send immediately unless you pass `draft: true`, which saves to Drafts instead.
 
-| Tool | What it does |
-| --- | --- |
-| `create_draft` | Save a draft (never sends) |
-| `reply_to_message` | Threaded reply — **saves a draft by default**, `send=true` to send |
-| `send_message` | Send a new email **immediately** |
-| `mark_read` / `mark_unread` | Toggle the read flag |
-| `archive_message` / `move_message` | Move between folders |
-| `trash_message` | Move to Trash (reversible until emptied) |
-
-Set `"readOnly": true` (or `PROTONMAIL_READONLY=1`) to register **only** the read tools — a hard
-guarantee the agent can never send, move, or delete, regardless of client approval settings.
+Set `"readOnly": true` (or `PROTONMAIL_READONLY=1`) to register **only** the three read tools — a
+hard guarantee the agent can never compose, send, reply, or forward, whatever the client's approval
+settings.
 
 ### Safety model
 
-The write tools that matter — `send_message`, `trash_message`, and `reply_to_message` with
-`send=true` — are named and described so your MCP client's per-tool approval is the natural gate;
-reads never prompt. Prefer **drafting** over sending: the agent writes, you review in Proton, you
-hit send. For an unattended/headless setup, run `readOnly` and there's simply nothing dangerous to
-approve.
+The tools that leave the building — `send_message`, `reply`, `reply_all`, `forward` — are named and
+described so your MCP client's per-tool approval is the natural gate; searching, reading, and
+downloading never prompt. Prefer drafting: `create_draft` (or `draft: true` on a reply/forward) lets
+the agent write while you review in Proton and hit send yourself. For an unattended/headless setup,
+run `readOnly` and there's simply nothing that can send. Downloaded attachments are confined to the
+configured directory (filenames are basename-sanitised, so a crafted name can't escape it); outgoing
+attachments read local files by path, so treat `send`/`reply`/`forward` as the trust boundary they
+are.
 
 ## On your phone
 
@@ -117,7 +118,7 @@ Proton and tell me what needs dealing with"_ on the train, replies drafted by th
 MCP client (Claude Code / Cursor / …)
         │  MCP over stdio
         ▼
-   protonmail-mcp   ──IMAP──►  127.0.0.1:1143  ┐
+   proton-mail-bridge-mcp   ──IMAP──►  127.0.0.1:1143  ┐
         │          ──SMTP──►  127.0.0.1:1025  ├─ Proton Bridge ──► Proton Mail
         └── clean JSON in, tool calls out       ┘   (local, TLS, your machine only)
 ```
@@ -128,4 +129,4 @@ trusted cert.
 
 ## Licence
 
-MIT © 2026 Simon Stark. Not affiliated with or endorsed by Proton AG.
+MIT © 2026 Apexx Apps. Not affiliated with or endorsed by Proton AG.

@@ -1,11 +1,14 @@
 {
-  "_comment": "Copy to ~/.config/protonmail-mcp/config.json and fill in. These come from Proton Bridge → your account → Mailbox details (the Bridge-generated IMAP/SMTP credentials — NOT your Proton login password). Or set the equivalent PROTONMAIL_* environment variables instead.",
+  "_comment": "Copy to ~/.config/proton-mail-bridge-mcp/config.json and fill in. These come from Proton Bridge → your account → Mailbox details (the Bridge-generated IMAP/SMTP credentials — NOT your Proton login password). Or set the equivalent PROTONMAIL_* environment variables instead.",
   "host": "127.0.0.1",
   "imapPort": 1143,
   "smtpPort": 1025,
   "user": "you@proton.me",
   "pass": "bridge-generated-password-here",
   "fromAddress": "you@proton.me",
+  "imapSecurity": "STARTTLS",
+  "smtpSecurity": "STARTTLS",
+  "downloadDir": "~/Downloads",
   "allowSelfSigned": true,
   "readOnly": false
 }
