@@ -50,6 +50,12 @@ export function describeImapError(err) {
   if (err.authenticationFailed) parts.push('authentication rejected by Bridge');
   const server = err.responseText || err.response || (err.serverResponseCode ? `code ${err.serverResponseCode}` : '');
   if (server) parts.push(`server said: "${String(server).trim()}"`);
+  // Bridge/gluon reports EVERY auth failure as "no such user" — including a wrong PASSWORD. Spell that
+  // out; taking it literally (as "the username is unknown") sends you down a rabbit hole. (It cost us one.)
+  if (/no such user/i.test(server)) {
+    parts.push('(this means wrong username OR wrong password — Bridge says "no such user" for both; ' +
+      'copy both fresh from Bridge → Mailbox details, don\'t transcribe by eye)');
+  }
   if (!parts.length) parts.push(err.message || String(err));
   return parts.join(' — ');
 }

@@ -34,9 +34,29 @@ function snippet(text, max = 280) {
   return clean.length > max ? clean.slice(0, max - 1) + '…' : clean;
 }
 
+// Many emails ship HTML-only (no plain-text part), which would otherwise read as an empty body. A
+// lightweight tags-to-text pass keeps us dependency-free while making those legible to the model.
+function htmlToText(html) {
+  if (!html) return '';
+  return html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '') // drop script/style blocks entirely
+    .replace(/<(br|\/p|\/div|\/tr|\/li|\/h[1-6])[^>]*>/gi, '\n') // block ends → newlines
+    .replace(/<[^>]+>/g, '') // strip remaining tags
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#3[49];/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Full message → clean object. `opts.full` keeps the entire body; otherwise we strip quoted history.
 export function cleanMessage({ parsed, flags, uid, mailbox }, opts = {}) {
-  const bodyText = parsed.text || '';
+  // Prefer the plain-text part; fall back to a stripped-down version of the HTML for HTML-only mail.
+  const bodyText = parsed.text || htmlToText(parsed.html);
   const trimmed = opts.full ? bodyText : stripQuoted(bodyText);
   return {
     uid,
