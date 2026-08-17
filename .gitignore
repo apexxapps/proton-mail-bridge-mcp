@@ -1,0 +1,8 @@
+node_modules/
+npm-debug.log*
+*.log
+
+# Never commit real credentials or a local config
+config.json
+.env
+.DS_Store
