@@ -28,7 +28,7 @@ import {
   composeMime,
   sendMail,
 } from './mail.js';
-import { cleanMessage } from './format.js';
+import { cleanMessage, htmlToText } from './format.js';
 
 function ok(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
@@ -146,8 +146,8 @@ export function registerTools(server, cfg) {
     'Reply to a message (to its sender), correctly threaded, quoting the original. Sends immediately ' +
       'unless draft=true (saves to Drafts for you to review). Can include local file attachments.',
     replyShape(),
-    guard(async ({ uid, mailbox = MAILBOX.inbox, body, draft = false, attachments }) => {
-      const message = await buildReply(cfg, { uid, mailbox, body, all: false });
+    guard(async ({ uid, mailbox = MAILBOX.inbox, body, html, draft = false, attachments }) => {
+      const message = await buildReply(cfg, { uid, mailbox, body, html, all: false });
       attachLocal(message, attachments);
       return deliver(cfg, message, draft);
     })
@@ -158,8 +158,8 @@ export function registerTools(server, cfg) {
     'Reply to a message and everyone on it (sender + all other recipients, excluding you), threaded ' +
       'and quoting the original. Sends immediately unless draft=true. Can include local file attachments.',
     replyShape(),
-    guard(async ({ uid, mailbox = MAILBOX.inbox, body, draft = false, attachments }) => {
-      const message = await buildReply(cfg, { uid, mailbox, body, all: true });
+    guard(async ({ uid, mailbox = MAILBOX.inbox, body, html, draft = false, attachments }) => {
+      const message = await buildReply(cfg, { uid, mailbox, body, html, all: true });
       attachLocal(message, attachments);
       return deliver(cfg, message, draft);
     })
@@ -173,12 +173,13 @@ export function registerTools(server, cfg) {
       uid: z.number().int().describe('The message to forward.'),
       to: z.union([z.string(), z.array(z.string())]).describe('Recipient address(es) to forward to.'),
       mailbox: z.string().optional().describe('The mailbox the uid belongs to (default "INBOX").'),
-      body: z.string().optional().describe('An optional note to add above the forwarded message.'),
+      body: z.string().optional().describe('An optional plain-text note above the forwarded message.'),
+      html: z.string().optional().describe('An optional HTML note above the forwarded message.'),
       draft: z.boolean().optional().describe('Save to Drafts instead of sending (default false).'),
       attachments: attachmentsField(),
     },
-    guard(async ({ uid, mailbox = MAILBOX.inbox, to, body, draft = false, attachments }) => {
-      const message = await buildForward(cfg, { uid, mailbox, to, body });
+    guard(async ({ uid, mailbox = MAILBOX.inbox, to, body, html, draft = false, attachments }) => {
+      const message = await buildForward(cfg, { uid, mailbox, to, body, html });
       attachLocal(message, attachments); // merges with the carried-over originals
       return deliver(cfg, message, draft);
     })
@@ -197,12 +198,24 @@ function attachmentsField() {
     );
 }
 
+// Provide EITHER body (plain text) or html (a formatted HTML body). If html is given, a plain-text
+// version is derived automatically so the message renders everywhere (proper multipart/alternative).
+function bodyFields() {
+  return {
+    body: z.string().optional().describe('Plain-text body. Provide this OR html.'),
+    html: z
+      .string()
+      .optional()
+      .describe('HTML body for a formatted email. A plain-text alternative is generated automatically.'),
+  };
+}
+
 // Compose shape for new mail (create_draft / send_message).
 function composeShape() {
   return {
     to: z.union([z.string(), z.array(z.string())]).describe('Recipient address(es).'),
     subject: z.string().describe('Subject line.'),
-    body: z.string().describe('Plain-text body.'),
+    ...bodyFields(),
     cc: z.union([z.string(), z.array(z.string())]).optional(),
     bcc: z.union([z.string(), z.array(z.string())]).optional(),
     attachments: attachmentsField(),
@@ -214,7 +227,7 @@ function replyShape() {
   return {
     uid: z.number().int().describe('The message being replied to.'),
     mailbox: z.string().optional().describe('The mailbox the uid belongs to (default "INBOX").'),
-    body: z.string().describe('Your reply text (the original is quoted beneath it).'),
+    ...bodyFields(),
     draft: z.boolean().optional().describe('Save to Drafts instead of sending (default false).'),
     attachments: attachmentsField(),
   };
@@ -222,9 +235,21 @@ function replyShape() {
 
 // --- message construction -----------------------------------------------------------------------
 
+// Resolve the {body, html} pair into the text/html fields of a message. If html is given we always
+// include a plain-text alternative (derived if not supplied) so the mail renders in any client.
+function bodyParts({ body, html }) {
+  if (html) return { html, text: body || htmlToText(html) };
+  return { text: body || '' };
+}
+
+// Minimal HTML-escape for dropping plain text into an HTML context safely.
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // Map new-mail args to a nodemailer/MailComposer message.
 function toMessage(a) {
-  const msg = { to: a.to, subject: a.subject, text: a.body };
+  const msg = { to: a.to, subject: a.subject, ...bodyParts(a) };
   if (a.cc) msg.cc = a.cc;
   if (a.bcc) msg.bcc = a.bcc;
   attachLocal(msg, a.attachments);
@@ -250,7 +275,7 @@ function expandHome(p) {
 }
 
 // Build a threaded reply (all=true → reply-all, CC'ing the other recipients, never yourself).
-async function buildReply(cfg, { uid, mailbox, body, all }) {
+async function buildReply(cfg, { uid, mailbox, body, html, all }) {
   const { parsed } = await getMessage(cfg, { uid, mailbox });
   const replyTo =
     parsed.replyTo?.value?.[0]?.address || parsed.from?.value?.[0]?.address;
@@ -260,10 +285,16 @@ async function buildReply(cfg, { uid, mailbox, body, all }) {
   const message = {
     to: replyTo,
     subject,
-    text: `${body}${quoteOriginal(parsed)}`,
     inReplyTo: parsed.messageId || undefined,
     references: [parsed.references, parsed.messageId].flat().filter(Boolean).join(' ') || undefined,
   };
+  // HTML reply → quote the original as an HTML blockquote; else plain-text "> " quoting.
+  if (html) {
+    message.html = `${html}${quoteHtml(parsed)}`;
+    message.text = htmlToText(message.html);
+  } else {
+    message.text = `${body || ''}${quoteOriginal(parsed)}`;
+  }
 
   if (all) {
     const me = new Set([cfg.fromAddress, cfg.user].filter(Boolean).map((s) => s.toLowerCase()));
@@ -277,37 +308,54 @@ async function buildReply(cfg, { uid, mailbox, body, all }) {
   return message;
 }
 
-// Build a forward, carrying the original's attachments as real bytes.
-async function buildForward(cfg, { uid, mailbox, to, body }) {
+// Build a forward, carrying the original's attachments as real bytes. An HTML note (html) produces an
+// HTML forward; otherwise a plain-text one.
+async function buildForward(cfg, { uid, mailbox, to, body, html }) {
   const { parsed } = await getMessage(cfg, { uid, mailbox });
   const subject = /^fwd?:/i.test(parsed.subject || '') ? parsed.subject : `Fwd: ${parsed.subject || ''}`.trim();
-  const header = [
+  const headerLines = [
     '---------- Forwarded message ----------',
     `From: ${parsed.from?.text || ''}`,
     `Date: ${parsed.date ? parsed.date.toUTCString() : ''}`,
     `Subject: ${parsed.subject || ''}`,
     `To: ${parsed.to?.text || ''}`,
-  ].join('\n');
+  ];
   const message = {
     to,
     subject,
-    text: `${body ? body + '\n\n' : ''}${header}\n\n${parsed.text || ''}`,
     attachments: (parsed.attachments || []).map((a) => ({
       filename: a.filename || 'attachment',
       content: a.content,
       contentType: a.contentType,
     })),
   };
+  if (html) {
+    const headerHtml = headerLines.map(esc).join('<br>');
+    const orig = parsed.html || esc(parsed.text || '').replace(/\n/g, '<br>');
+    message.html = `${html ? html + '<br><br>' : ''}${headerHtml}<br><br>${orig}`;
+    message.text = htmlToText(message.html);
+  } else {
+    message.text = `${body ? body + '\n\n' : ''}${headerLines.join('\n')}\n\n${parsed.text || ''}`;
+  }
   return message;
 }
 
-// A conventional quoted-original block appended beneath a reply.
+// A conventional plain-text quoted-original block appended beneath a reply.
 function quoteOriginal(parsed) {
   const who = parsed.from?.value?.[0];
   const when = parsed.date ? parsed.date.toUTCString() : '';
   const attribution = `On ${when}, ${who?.name || who?.address || 'the sender'} wrote:`;
   const quoted = (parsed.text || '').split('\n').map((l) => `> ${l}`).join('\n');
   return `\n\n${attribution}\n${quoted}`;
+}
+
+// An HTML quoted-original block (blockquote), preferring the original's own HTML.
+function quoteHtml(parsed) {
+  const who = parsed.from?.value?.[0];
+  const when = parsed.date ? parsed.date.toUTCString() : '';
+  const attribution = `On ${when}, ${esc(who?.name || who?.address || 'the sender')} wrote:`;
+  const inner = parsed.html || esc(parsed.text || '').replace(/\n/g, '<br>');
+  return `<br><br>${attribution}<br><blockquote style="margin:0 0 0 0.8ex;border-left:2px solid #ccc;padding-left:1ex">${inner}</blockquote>`;
 }
 
 // Send now, or save to Drafts if draft=true.

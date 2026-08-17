@@ -82,4 +82,4 @@ export function cleanMessage({ parsed, flags, uid, mailbox }, opts = {}) {
   };
 }
 
-export { stripQuoted, snippet };
+export { stripQuoted, snippet, htmlToText };

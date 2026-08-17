@@ -86,10 +86,15 @@ Deliberately small — eight, and only eight.
 | `reply_all` | Reply to sender + everyone else (never you), threaded | write |
 | `forward` | Forward a message to new recipients, carrying its attachments | write |
 
-Any outgoing tool (`create_draft` / `send_message` / `reply` / `reply_all` / `forward`) can attach
-**local files** by path — absolute, or relative to the working directory, so you can email a file
-straight out of the project you're working in (e.g. `attachments: ["./report.pdf"]`). `reply` /
-`reply_all` / `forward` send immediately unless you pass `draft: true`, which saves to Drafts instead.
+Any outgoing tool (`create_draft` / `send_message` / `reply` / `reply_all` / `forward`) can:
+- send **plain text** (`body`) or a formatted **HTML** email (`html`) — HTML messages get an
+  auto-generated plain-text alternative so they render in any client, and replies quote the original
+  as an HTML blockquote;
+- attach **local files** by path — absolute, or relative to the working directory, so you can email a
+  file straight out of the project you're working in (e.g. `attachments: ["./report.pdf"]`).
+
+`reply` / `reply_all` / `forward` send immediately unless you pass `draft: true`, which saves to
+Drafts instead.
 
 Set `"readOnly": true` (or `PROTONMAIL_READONLY=1`) to register **only** the three read tools — a
 hard guarantee the agent can never compose, send, reply, or forward, whatever the client's approval

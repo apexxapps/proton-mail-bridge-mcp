@@ -57,6 +57,10 @@ stderr). Files in `src/`:
   **Outgoing attachments:** any write tool takes `attachments: [localPath]` — absolute or relative to
   cwd, ~-expanded, read off disk via nodemailer (`attachLocal`); forward carries the original's
   attachments as bytes too. The BrainBoxx angle: email a file straight out of the brain you're in.
+  **HTML email:** compose/reply/forward accept `body` (plain) OR `html` (formatted); `bodyParts()`
+  always adds a plain-text alternative (via `htmlToText`) so it's proper multipart/alternative, and
+  replies/forwards quote the original as an HTML blockquote (`quoteHtml`). Reading HTML-only mail:
+  `format.js htmlToText` fallback so `get_message` isn't blank on HTML-only messages.
   Deliberately CUT (do NOT re-add without Simon — "plain and simple" is the positioning): mark
   read/unread, move/archive/trash, folders/labels, bulk ops, analytics, threads.
 - **`doctor.js`** — `npx proton-mail-bridge-mcp doctor`: human-facing preflight. Connects, authenticates,
