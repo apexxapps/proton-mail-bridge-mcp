@@ -286,7 +286,7 @@ async function buildReply(cfg, { uid, mailbox, body, html, all }) {
     to: replyTo,
     subject,
     inReplyTo: parsed.messageId || undefined,
-    references: [parsed.references, parsed.messageId].flat().filter(Boolean).join(' ') || undefined,
+    references: threadReferences(parsed),
   };
   // HTML reply → quote the original as an HTML blockquote; else plain-text "> " quoting.
   if (html) {
@@ -338,6 +338,21 @@ async function buildForward(cfg, { uid, mailbox, to, body, html }) {
     message.text = `${body ? body + '\n\n' : ''}${headerLines.join('\n')}\n\n${parsed.text || ''}`;
   }
   return message;
+}
+
+// Build the References header for a reply: the original's own References chain plus its Message-ID,
+// as an ARRAY of clean ids. We drop Proton Bridge's synthetic `@protonmail.internalid` references —
+// they aren't real routable Message-IDs, and their `==` padding makes nodemailer silently drop the
+// whole header. Returning an array (not a joined string) also avoids that parser quirk.
+function threadReferences(parsed) {
+  const raw = [];
+  if (parsed.references) raw.push(...[parsed.references].flat());
+  if (parsed.messageId) raw.push(parsed.messageId);
+  const clean = raw
+    .filter(Boolean)
+    .flatMap((r) => String(r).split(/\s+/)) // References can be several ids in one string
+    .filter((id) => id && !/@protonmail\.internalid>?$/i.test(id));
+  return clean.length ? [...new Set(clean)] : undefined;
 }
 
 // A conventional plain-text quoted-original block appended beneath a reply.
