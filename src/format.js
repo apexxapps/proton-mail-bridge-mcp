@@ -36,19 +36,31 @@ function snippet(text, max = 280) {
 
 // Many emails ship HTML-only (no plain-text part), which would otherwise read as an empty body. A
 // lightweight tags-to-text pass keeps us dependency-free while making those legible to the model.
+const NAMED_ENTITIES = {
+  nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", middot: '·',
+  mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”',
+  copy: '©', reg: '®', trade: '™', pound: '£', euro: '€', deg: '°',
+};
+
+// Decode numeric (&#123; / &#x1F;) and the common named HTML entities into their characters.
+function decodeEntities(s) {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&([a-z][a-z0-9]*);/gi, (m, n) => NAMED_ENTITIES[n.toLowerCase()] ?? m);
+}
+
 function htmlToText(html) {
   if (!html) return '';
-  return html
-    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '') // drop script/style blocks entirely
-    .replace(/<(br|\/p|\/div|\/tr|\/li|\/h[1-6])[^>]*>/gi, '\n') // block ends -> newlines
-    .replace(/<[^>]+>/g, '') // strip remaining tags
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#3[49];/g, "'")
+  return decodeEntities(
+    html
+      .replace(/<!--[\s\S]*?-->/g, '') // drop HTML comments (never rendered; often internal notes)
+      .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '') // drop script/style blocks entirely
+      .replace(/<(br|\/p|\/div|\/tr|\/li|\/h[1-6])[^>]*>/gi, '\n') // block ends -> newlines
+      .replace(/<[^>]+>/g, '') // strip remaining tags
+  )
     .replace(/[ \t]+/g, ' ')
+    .replace(/[ \t]*\n[ \t]*/g, '\n') // trim whitespace hugging line breaks
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

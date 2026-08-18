@@ -138,6 +138,11 @@ HTML signature used on HTML emails. Set either or both — if only one is given,
 **`signatureHtmlPath` is live** — the file is re-read on every send, so editing it changes what goes out
 on your next email, no restart. Keep your signature in one HTML file and it stays in sync everywhere.
 
+**Missing-signature guard.** If you've set a `signatureHtmlPath` and the file can't be read at send time
+(moved, renamed, deleted), the tool **refuses to send** rather than quietly firing off an unsigned email —
+with a clear message telling you to restore the file or fix the path. Set `"requireSignature": false` to
+send-without instead of blocking. (No effect if you haven't configured a signature.)
+
 Set `"readOnly": true` (or `PROTONMAIL_READONLY=1`) to register **only** the three read tools — a
 hard guarantee the agent can never compose, send, reply, or forward, whatever the client's approval
 settings.

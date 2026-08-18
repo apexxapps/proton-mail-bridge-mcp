@@ -82,6 +82,9 @@ export function loadConfig() {
     signature: env.PROTONMAIL_SIGNATURE || file.signature || '',
     signatureHtml: env.PROTONMAIL_SIGNATURE_HTML || file.signatureHtml || '',
     signatureHtmlPath: expandHome(env.PROTONMAIL_SIGNATURE_HTML_PATH || file.signatureHtmlPath || ''),
+    // If a signatureHtmlPath is set but the file can't be read at send time, refuse to send unsigned
+    // rather than quietly dropping your signature. Set false to send-without instead of blocking.
+    requireSignature: bool(env.PROTONMAIL_REQUIRE_SIGNATURE, bool(file.requireSignature, true)),
   };
 
   if (!cfg.fromAddress && /@/.test(cfg.user)) cfg.fromAddress = cfg.user;

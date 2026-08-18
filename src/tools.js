@@ -255,10 +255,22 @@ function signatureParts(cfg) {
   if (cfg.signatureHtmlPath) {
     try {
       html = fs.readFileSync(cfg.signatureHtmlPath, 'utf8'); // live read
-    } catch {
-      // File missing/unreadable right now — fall back to inline signatureHtml (or none) rather than fail.
+    } catch (err) {
+      // You configured a signature but its file is gone — don't quietly send unsigned. Block unless
+      // there's an inline fallback, or the user opted out with requireSignature:false.
+      if (cfg.requireSignature !== false && !cfg.signatureHtml && !cfg.signature) {
+        throw new Error(
+          `Signature file not found at ${cfg.signatureHtmlPath} (${err.code || err.message}) — ` +
+            `refusing to send unsigned. Restore the file or fix signatureHtmlPath, or set ` +
+            `"requireSignature": false in your config to send without it.`
+        );
+      }
+      // inline fallback or opted out → proceed without the file
     }
   }
+  // Strip HTML comments so a signature file's internal notes / plain-text fallback never ship in the
+  // email source (or leak into the derived plain-text signature).
+  html = html.replace(/<!--[\s\S]*?-->/g, '').trim();
   const text = cfg.signature || (html ? htmlToText(html) : '');
   const htmlOut = html || (text ? esc(text).replace(/\n/g, '<br>') : '');
   return { text, html: htmlOut, has: !!(text || html) };
