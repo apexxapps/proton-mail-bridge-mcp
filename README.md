@@ -174,6 +174,19 @@ Bridge presents a self-signed cert on localhost (expected); this trusts it by de
 `127.0.0.1`. Set `"allowSelfSigned": false` to enforce full verification if you've given Bridge a
 trusted cert.
 
+## Updating
+
+`npx` caches the package, so `npx -y proton-mail-bridge-mcp` keeps running the version it first
+downloaded — new releases don't arrive on their own. To update:
+
+```bash
+npx proton-mail-bridge-mcp@latest doctor   # pulls the newest version into npx's cache
+```
+
+The next time your MCP client starts the server, it uses the new version. For **hands-off
+auto-updates**, pin `@latest` in your client config instead — `npx -y proton-mail-bridge-mcp@latest` —
+and it checks for a newer version on every start. (If a stale copy sticks around: `npm cache clean --force`.)
+
 ## Troubleshooting
 
 Run `npx proton-mail-bridge-mcp doctor` first — it names the actual failure. Common ones:
