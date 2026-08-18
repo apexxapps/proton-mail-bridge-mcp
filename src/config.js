@@ -74,10 +74,31 @@ export function loadConfig() {
     // Where downloaded attachments are written. Downloads are confined to this directory (filenames
     // are basename-sanitised) so a crafted attachment name can't escape it. A leading ~ is expanded.
     downloadDir: expandHome(env.PROTONMAIL_DOWNLOAD_DIR || file.downloadDir || path.join(os.homedir(), 'Downloads')),
+    // Signature appended to outgoing mail (Proton's own signature is a composer feature and is NOT
+    // applied when sending over SMTP, so we add it ourselves). `signature` = plain text; `signatureHtml`
+    // = HTML (inline, or loaded from `signatureHtmlPath`). Placed at the end of new mail, and above the
+    // quoted original on replies. Leave unset for no signature.
+    signature: env.PROTONMAIL_SIGNATURE || file.signature || '',
+    signatureHtml: loadSignatureHtml(env, file),
   };
 
   if (!cfg.fromAddress && /@/.test(cfg.user)) cfg.fromAddress = cfg.user;
   return cfg;
+}
+
+// Resolve the HTML signature: an inline `signatureHtml` string wins, else read `signatureHtmlPath`
+// from disk (~ expanded). A bad path warns to stderr rather than crashing the server.
+function loadSignatureHtml(env, file) {
+  const inline = env.PROTONMAIL_SIGNATURE_HTML || file.signatureHtml;
+  if (inline) return inline;
+  const p = env.PROTONMAIL_SIGNATURE_HTML_PATH || file.signatureHtmlPath;
+  if (!p) return '';
+  try {
+    return fs.readFileSync(expandHome(p), 'utf8');
+  } catch (err) {
+    process.stderr.write(`[proton-mail-bridge-mcp] could not read signatureHtmlPath (${p}): ${err.message}\n`);
+    return '';
+  }
 }
 
 // Fail loudly and helpfully rather than letting IMAP throw a cryptic auth error deep in a tool call.

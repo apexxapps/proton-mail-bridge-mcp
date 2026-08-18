@@ -126,7 +126,7 @@ export function registerTools(server, cfg) {
       'Proton. Can include local file attachments.',
     composeShape(),
     guard(async (a) => {
-      await appendDraft(cfg, await composeMime(cfg, toMessage(a)));
+      await appendDraft(cfg, await composeMime(cfg, toMessage(a, cfg)));
       return { ok: true, saved: 'Drafts' };
     })
   );
@@ -136,7 +136,7 @@ export function registerTools(server, cfg) {
     'Send a new email immediately. This goes out the moment it runs — the client should confirm first. ' +
       'To let a human review before sending, use create_draft instead. Can include local file attachments.',
     composeShape(),
-    guard(async (a) => ({ ok: true, sent: await sendMail(cfg, toMessage(a)) }))
+    guard(async (a) => ({ ok: true, sent: await sendMail(cfg, toMessage(a, cfg)) }))
   );
 
   // --- REPLY / FORWARD (to an existing message) ---------------------------------------------------
@@ -247,9 +247,33 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Map new-mail args to a nodemailer/MailComposer message.
-function toMessage(a) {
-  const msg = { to: a.to, subject: a.subject, ...bodyParts(a) };
+// The configured signature as {text, html}. If only one form is set, the other is derived so both a
+// plain and an HTML message get a sensible signature.
+function signatureParts(cfg) {
+  const html = cfg.signatureHtml || '';
+  const text = cfg.signature || (html ? htmlToText(html) : '');
+  const htmlOut = html || (text ? esc(text).replace(/\n/g, '<br>') : '');
+  return { text, html: htmlOut, has: !!(text || html) };
+}
+
+// Append the signature to a plain-text body chunk (returns body unchanged if no signature).
+function withSigText(cfg, body) {
+  const { text, has } = signatureParts(cfg);
+  return has && text ? `${body}\n\n${text}` : body;
+}
+
+// Append the signature to an HTML body chunk.
+function withSigHtml(cfg, htmlBody) {
+  const { html, has } = signatureParts(cfg);
+  return has && html ? `${htmlBody}<br><br>${html}` : htmlBody;
+}
+
+// Map new-mail args to a nodemailer/MailComposer message, with the signature appended.
+function toMessage(a, cfg) {
+  const parts = bodyParts(a);
+  parts.text = withSigText(cfg, parts.text || '');
+  if (parts.html != null) parts.html = withSigHtml(cfg, parts.html);
+  const msg = { to: a.to, subject: a.subject, ...parts };
   if (a.cc) msg.cc = a.cc;
   if (a.bcc) msg.bcc = a.bcc;
   attachLocal(msg, a.attachments);
@@ -288,12 +312,12 @@ async function buildReply(cfg, { uid, mailbox, body, html, all }) {
     inReplyTo: parsed.messageId || undefined,
     references: threadReferences(parsed),
   };
-  // HTML reply → quote the original as an HTML blockquote; else plain-text "> " quoting.
+  // Signature sits after your reply text but ABOVE the quoted original — where a sign-off belongs.
   if (html) {
-    message.html = `${html}${quoteHtml(parsed)}`;
+    message.html = `${withSigHtml(cfg, html)}${quoteHtml(parsed)}`;
     message.text = htmlToText(message.html);
   } else {
-    message.text = `${body || ''}${quoteOriginal(parsed)}`;
+    message.text = `${withSigText(cfg, body || '')}${quoteOriginal(parsed)}`;
   }
 
   if (all) {
@@ -332,10 +356,12 @@ async function buildForward(cfg, { uid, mailbox, to, body, html }) {
   if (html) {
     const headerHtml = headerLines.map(esc).join('<br>');
     const orig = parsed.html || esc(parsed.text || '').replace(/\n/g, '<br>');
-    message.html = `${html ? html + '<br><br>' : ''}${headerHtml}<br><br>${orig}`;
+    const note = withSigHtml(cfg, html || ''); // your note + signature, above the forwarded block
+    message.html = `${note ? note + '<br><br>' : ''}${headerHtml}<br><br>${orig}`;
     message.text = htmlToText(message.html);
   } else {
-    message.text = `${body ? body + '\n\n' : ''}${headerLines.join('\n')}\n\n${parsed.text || ''}`;
+    const note = withSigText(cfg, body || '');
+    message.text = `${note ? note + '\n\n' : ''}${headerLines.join('\n')}\n\n${parsed.text || ''}`;
   }
   return message;
 }

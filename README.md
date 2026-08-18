@@ -121,6 +121,20 @@ Any outgoing tool (`create_draft` / `send_message` / `reply` / `reply_all` / `fo
 `reply` / `reply_all` / `forward` send immediately unless you pass `draft: true`, which saves to
 Drafts instead.
 
+**Signatures.** Proton's own signature is a composer feature and isn't applied when sending over SMTP,
+so set one here to have it appended automatically — at the end of new mail, and above the quoted
+original on replies:
+
+```json
+{
+  "signature": "Simon\nApexx Apps · apexx.app",
+  "signatureHtmlPath": "~/.config/proton-mail-bridge-mcp/signature.html"
+}
+```
+
+`signature` is plain text; `signatureHtml` (inline) or `signatureHtmlPath` (a file) supplies a formatted
+HTML signature used on HTML emails. Set either or both — if only one is given, the other is derived.
+
 Set `"readOnly": true` (or `PROTONMAIL_READONLY=1`) to register **only** the three read tools — a
 hard guarantee the agent can never compose, send, reply, or forward, whatever the client's approval
 settings.
