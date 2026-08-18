@@ -12,9 +12,22 @@ your decrypted mail never leaves your machine, and nothing here is a hosted serv
 
 ---
 
-## Before you start — the one requirement
+## Before you start
 
-You need **[Proton Bridge](https://proton.me/mail/bridge)** running on the same machine.
+**1. Node.js 18+.** The install uses `npx`, which comes with Node. Check with `node -v`. If you get
+`command not found`, install it — no website or downloads needed:
+
+```bash
+# macOS / Linux (installs nvm, then Node LTS, in one go):
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash \
+  && export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm install --lts
+# Windows (PowerShell):
+winget install OpenJS.NodeJS
+```
+
+Then open a **fresh terminal** so `npx` is on your PATH.
+
+**2. [Proton Bridge](https://proton.me/mail/bridge)** running on the same machine.
 
 - Bridge requires a **paid Proton plan** (Mail Plus / Proton Unlimited). Free Proton accounts can't
   use Bridge, and therefore can't use this. That's a Proton limitation, not ours.
