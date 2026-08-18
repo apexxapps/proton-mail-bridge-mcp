@@ -85,6 +85,9 @@ export function loadConfig() {
     // If a signatureHtmlPath is set but the file can't be read at send time, refuse to send unsigned
     // rather than quietly dropping your signature. Set false to send-without instead of blocking.
     requireSignature: bool(env.PROTONMAIL_REQUIRE_SIGNATURE, bool(file.requireSignature, true)),
+    // Outgoing mail is sent as HTML by default (a plain-text body is wrapped so it renders in a normal
+    // proportional font everywhere, not monospace). Set plainText:true to send plain text instead.
+    plainText: bool(env.PROTONMAIL_PLAIN_TEXT, bool(file.plainText, false)),
   };
 
   if (!cfg.fromAddress && /@/.test(cfg.user)) cfg.fromAddress = cfg.user;

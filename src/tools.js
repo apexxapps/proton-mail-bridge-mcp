@@ -235,24 +235,18 @@ function replyShape() {
 
 // --- message construction -----------------------------------------------------------------------
 
-// True if an HTML signature is configured (inline or a file path).
-function hasHtmlSignature(cfg) {
-  return !!(cfg && (cfg.signatureHtml || cfg.signatureHtmlPath));
-}
-
 // Plain text -> minimal safe HTML (escaped, newlines -> <br>).
 function textToHtml(s) {
   return esc(s || '').replace(/\n/g, '<br>');
 }
 
-// Resolve the {body, html} pair into the text/html fields of a message. If html is given we always
-// include a plain-text alternative. And if the agent composed PLAIN text but an HTML signature is
-// configured, we auto-upgrade to HTML — wrapping the plain body — so the formatted signature always
-// rides along, whatever the agent chose. (Set no HTML signature to keep plain-text emails plain.)
+// Resolve the {body, html} pair into the text/html fields of a message. HTML is the default: a plain
+// body is wrapped in minimal HTML (with a plain-text alternative kept) so mail renders in a normal
+// proportional font everywhere instead of monospace. Opt out with plainText:true in config.
 function bodyParts(a, cfg) {
   if (a.html) return { html: a.html, text: a.body || htmlToText(a.html) };
-  if (hasHtmlSignature(cfg)) return { html: textToHtml(a.body || ''), text: a.body || '' };
-  return { text: a.body || '' };
+  if (cfg && cfg.plainText) return { text: a.body || '' };
+  return { html: textToHtml(a.body || ''), text: a.body || '' };
 }
 
 // Minimal HTML-escape for dropping plain text into an HTML context safely.
@@ -346,8 +340,8 @@ async function buildReply(cfg, { uid, mailbox, body, html, all }) {
     references: threadReferences(parsed),
   };
   // Signature sits after your reply text but ABOVE the quoted original — where a sign-off belongs.
-  // Auto-upgrade a plain reply to HTML when an HTML signature is configured, so it's formatted.
-  if (html || hasHtmlSignature(cfg)) {
+  // HTML by default (renders in a normal font); plain only if the user opted into plainText.
+  if (html || !cfg.plainText) {
     const bodyHtml = html || textToHtml(body || '');
     message.html = `${withSigHtml(cfg, bodyHtml)}${quoteHtml(parsed)}`;
     message.text = htmlToText(message.html);
@@ -388,7 +382,7 @@ async function buildForward(cfg, { uid, mailbox, to, body, html }) {
       contentType: a.contentType,
     })),
   };
-  if (html || hasHtmlSignature(cfg)) {
+  if (html || !cfg.plainText) {
     const headerHtml = headerLines.map(esc).join('<br>');
     const orig = parsed.html || esc(parsed.text || '').replace(/\n/g, '<br>');
     const note = withSigHtml(cfg, html || textToHtml(body || '')); // your note + signature, above the forward
