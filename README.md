@@ -109,7 +109,7 @@ npx proton-mail-bridge-mcp setup
 Then register it with your MCP client, e.g. Claude Code:
 
 ```bash
-claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp
+claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp@latest
 ```
 
 Finally, **start a fresh session** in your client — MCP tools load when a session starts, so they won't
@@ -265,26 +265,20 @@ trusted cert.
 
 ## Updating
 
-`npx` keeps each package in an **execution cache** (`~/.npm/_npx`) and reuses it — so a new release
-isn't necessarily picked up on its own, and a plain `npm cache clean --force` does **not** clear it
-(that's a different cache). To force the newest version:
+If you registered it with **`@latest`** (as above), **you get new versions automatically** — `npx`
+re-checks the registry for the newest version each time your MCP client starts the server. A running
+session keeps its version (the server is a long-lived process), so just **start a fresh session** to
+pick up a release. No manual step.
+
+Rarely, if you try to install within a minute or two of a brand-new release, the registry may not have
+propagated yet — you'll see a "no matching version" error or the old version. Wait a moment (or run
+`npm cache clean --force`) and retry.
+
+**Prefer to pin a fixed version** rather than track latest? Register it with an explicit version and
+update on your own schedule:
 
 ```bash
-rm -rf ~/.npm/_npx        # clears npx's execution cache (macOS / Linux)
-npx -y proton-mail-bridge-mcp@latest doctor
-```
-
-Your MCP client uses the new version the next time it starts the server.
-
-**Prefer reliable updates without the cache dance? Install it globally** — then it's a normal package
-you update on demand, and your client runs it directly (no `npx`):
-
-```bash
-npm install -g proton-mail-bridge-mcp
-# then register it as the bare command:
-claude mcp add protonmail --scope user -- proton-mail-bridge-mcp
-# update any time:
-npm update -g proton-mail-bridge-mcp
+claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp@0.1.13
 ```
 
 ## Troubleshooting

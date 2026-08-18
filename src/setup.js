@@ -123,7 +123,7 @@ async function main() {
   const saved = saveConfig(cfg);
   console.log(`\n  Saved to ${saved}${smtpOk ? '' : ' (SMTP unverified — see above)'}`);
   console.log('\n  Now register it with your MCP client, e.g. Claude Code:');
-  console.log('    claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp\n');
+  console.log('    claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp@latest\n');
   rl.close();
 }
 

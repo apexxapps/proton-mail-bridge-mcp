@@ -32,7 +32,7 @@ async function main() {
     console.log('ok');
     console.log(`  ✓ authenticated — ${boxes.length} mailboxes visible.\n`);
     console.log('  You\'re good. Register it with your MCP client, e.g. Claude Code:');
-    console.log('    claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp\n');
+    console.log('    claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp@latest\n');
   } catch (err) {
     console.log('failed');
     console.error(`  ✗ ${describeImapError(err)}`);

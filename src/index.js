@@ -21,7 +21,7 @@ async function main() {
   }
 
   const server = new McpServer(
-    { name: 'proton-mail-bridge-mcp', version: '0.1.12' },
+    { name: 'proton-mail-bridge-mcp', version: '0.1.13' },
     {
       instructions:
         'Access the user\'s ProtonMail. Reading and searching is safe to do freely. Sending and ' +
