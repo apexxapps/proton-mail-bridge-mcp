@@ -228,16 +228,27 @@ trusted cert.
 
 ## Updating
 
-`npx` caches the package, so `npx -y proton-mail-bridge-mcp` keeps running the version it first
-downloaded — new releases don't arrive on their own. To update:
+`npx` keeps each package in an **execution cache** (`~/.npm/_npx`) and reuses it — so a new release
+isn't necessarily picked up on its own, and a plain `npm cache clean --force` does **not** clear it
+(that's a different cache). To force the newest version:
 
 ```bash
-npx proton-mail-bridge-mcp@latest doctor   # pulls the newest version into npx's cache
+rm -rf ~/.npm/_npx        # clears npx's execution cache (macOS / Linux)
+npx -y proton-mail-bridge-mcp@latest doctor
 ```
 
-The next time your MCP client starts the server, it uses the new version. For **hands-off
-auto-updates**, pin `@latest` in your client config instead — `npx -y proton-mail-bridge-mcp@latest` —
-and it checks for a newer version on every start. (If a stale copy sticks around: `npm cache clean --force`.)
+Your MCP client uses the new version the next time it starts the server.
+
+**Prefer reliable updates without the cache dance? Install it globally** — then it's a normal package
+you update on demand, and your client runs it directly (no `npx`):
+
+```bash
+npm install -g proton-mail-bridge-mcp
+# then register it as the bare command:
+claude mcp add protonmail --scope user -- proton-mail-bridge-mcp
+# update any time:
+npm update -g proton-mail-bridge-mcp
+```
 
 ## Troubleshooting
 
