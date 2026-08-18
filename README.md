@@ -12,6 +12,30 @@ your decrypted mail never leaves your machine, and nothing here is a hosted serv
 
 ---
 
+## Quick start
+
+The whole path, in order — about 10 minutes from scratch. Steps 1–3 are one-time prerequisites (mostly
+Proton's); the tool itself is the last two.
+
+1. **Have a paid Proton plan** (Mail Plus / Unlimited). Free Proton can't do this — it's a Proton limit, not ours.
+2. **Install & connect Proton Bridge** — [download it](https://proton.me/mail/bridge), sign in to Proton
+   (this opens a browser — that login is Proton's, not this tool), and **wait until Bridge shows "Connected"
+   and finishes its first sync.** ([details](#2-proton-bridge))
+3. **Install Node.js** if you don't have it — check with `node -v`. ([details](#1-nodejs-18))
+4. **Run the setup wizard.** Open Bridge's *Mailbox details* and paste each value when asked (it tests the
+   connection and saves):
+   ```bash
+   npx proton-mail-bridge-mcp setup
+   ```
+5. **Register it with your AI client** (e.g. Claude Code):
+   ```bash
+   claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp
+   ```
+6. **Start a fresh session** in your client (MCP tools load at session start), then try it:
+   _"Search my Proton inbox and tell me what needs a reply."_
+
+The rest of this README is detail on each step.
+
 ## Before you start
 
 Two prerequisites: **Node.js** (it provides the `npx` command everything below uses) and **Proton Bridge**.
@@ -56,14 +80,22 @@ Then **open a fresh terminal** and confirm it worked: `npx -v` should print a ve
 
 ### 2. Proton Bridge
 
-**[Proton Bridge](https://proton.me/mail/bridge)** must be installed and running on the same machine,
-signed into your account.
+**[Proton Bridge](https://proton.me/mail/bridge)** is Proton's official app that runs an IMAP/SMTP server
+on your machine so mail clients (and this tool) can reach your encrypted mailbox. Set it up first:
 
-- Bridge requires a **paid Proton plan** (Mail Plus / Proton Unlimited). Free Proton accounts can't
-  use Bridge, and therefore can't use this. That's a Proton limitation, not ours.
+1. **Download and install** Bridge, then open it.
+2. **Sign in** to your Proton account — this opens a **browser window** (that's Proton's login, nothing to
+   do with this tool).
+3. **Wait** until Bridge shows **"Connected"** and its **first sync finishes** — it re-reads its mailbox on
+   startup and can take a few minutes. Trying to connect before it's synced fails.
+
+Good to know:
+
+- Bridge requires a **paid Proton plan** (Mail Plus / Proton Unlimited). Free Proton accounts can't use
+  Bridge, and therefore can't use this. That's a Proton limitation, not ours.
 - Bridge runs on macOS, Windows, and Linux (headless via `protonmail-bridge --cli` on servers).
-- Bridge gives each account its **own generated IMAP/SMTP username & password** — you'll use those
-  here, **not** your normal Proton login.
+- Bridge gives each account its **own generated IMAP/SMTP username & password** (in its *Mailbox details*
+  panel) — you'll paste those into the setup wizard, **not** your normal Proton login.
 
 ## Install
 
@@ -79,6 +111,10 @@ Then register it with your MCP client, e.g. Claude Code:
 ```bash
 claude mcp add protonmail --scope user -- npx -y proton-mail-bridge-mcp
 ```
+
+Finally, **start a fresh session** in your client — MCP tools load when a session starts, so they won't
+appear in a session that was already open. Then ask it something like _"search my Proton inbox and tell me
+what needs a reply."_
 
 That's it. Prefer to configure by hand instead of the wizard? Read on.
 
