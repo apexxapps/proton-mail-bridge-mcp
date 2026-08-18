@@ -14,20 +14,50 @@ your decrypted mail never leaves your machine, and nothing here is a hosted serv
 
 ## Before you start
 
-**1. Node.js 18+.** The install uses `npx`, which comes with Node. Check with `node -v`. If you get
-`command not found`, install it — no website or downloads needed:
+Two prerequisites: **Node.js** (it provides the `npx` command everything below uses) and **Proton Bridge**.
+
+### 1. Node.js 18+
+
+First check whether you already have it — in a terminal:
 
 ```bash
-# macOS / Linux (installs nvm, then Node LTS, in one go):
+node -v      # prints something like v20.x → you're set, skip to Proton Bridge
+```
+
+If that says `command not found`, install Node. Pick **one** of these:
+
+**Quickest — no admin password, no website (macOS / Linux):**
+
+```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash \
   && export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm install --lts
-# Windows (PowerShell):
+```
+
+**With Homebrew (macOS)** — if you don't have `brew` yet, install it first (it asks for your Mac
+password and may take a few minutes):
+
+```bash
+# 1) install Homebrew, then add it to your PATH (these two PATH lines are for Apple-Silicon Macs;
+#    the installer also prints the exact lines for your machine at the end):
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile && eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# 2) install Node:
+brew install node
+```
+
+**Windows (PowerShell):**
+
+```powershell
 winget install OpenJS.NodeJS
 ```
 
-Then open a **fresh terminal** so `npx` is on your PATH.
+Then **open a fresh terminal** and confirm it worked: `npx -v` should print a version number.
 
-**2. [Proton Bridge](https://proton.me/mail/bridge)** running on the same machine.
+### 2. Proton Bridge
+
+**[Proton Bridge](https://proton.me/mail/bridge)** must be installed and running on the same machine,
+signed into your account.
 
 - Bridge requires a **paid Proton plan** (Mail Plus / Proton Unlimited). Free Proton accounts can't
   use Bridge, and therefore can't use this. That's a Proton limitation, not ours.
