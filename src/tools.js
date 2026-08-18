@@ -247,10 +247,18 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// The configured signature as {text, html}. If only one form is set, the other is derived so both a
-// plain and an HTML message get a sensible signature.
+// The configured signature as {text, html}. `signatureHtmlPath` is re-read on every call, so editing
+// that file changes what goes out on the next email — no restart ("live" signature). If only one form
+// is set, the other is derived so both a plain and an HTML message get a sensible signature.
 function signatureParts(cfg) {
-  const html = cfg.signatureHtml || '';
+  let html = cfg.signatureHtml || '';
+  if (cfg.signatureHtmlPath) {
+    try {
+      html = fs.readFileSync(cfg.signatureHtmlPath, 'utf8'); // live read
+    } catch {
+      // File missing/unreadable right now — fall back to inline signatureHtml (or none) rather than fail.
+    }
+  }
   const text = cfg.signature || (html ? htmlToText(html) : '');
   const htmlOut = html || (text ? esc(text).replace(/\n/g, '<br>') : '');
   return { text, html: htmlOut, has: !!(text || html) };

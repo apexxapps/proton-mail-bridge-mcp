@@ -135,6 +135,9 @@ original on replies:
 `signature` is plain text; `signatureHtml` (inline) or `signatureHtmlPath` (a file) supplies a formatted
 HTML signature used on HTML emails. Set either or both — if only one is given, the other is derived.
 
+**`signatureHtmlPath` is live** — the file is re-read on every send, so editing it changes what goes out
+on your next email, no restart. Keep your signature in one HTML file and it stays in sync everywhere.
+
 Set `"readOnly": true` (or `PROTONMAIL_READONLY=1`) to register **only** the three read tools — a
 hard guarantee the agent can never compose, send, reply, or forward, whatever the client's approval
 settings.
