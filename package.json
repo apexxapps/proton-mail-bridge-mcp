@@ -1,6 +1,6 @@
 {
   "name": "proton-mail-bridge-mcp",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "An MCP server that gives Claude Code (and any MCP client) access to your ProtonMail via a locally-running Proton Bridge.",
   "type": "module",
   "bin": {

@@ -235,11 +235,24 @@ function replyShape() {
 
 // --- message construction -----------------------------------------------------------------------
 
+// True if an HTML signature is configured (inline or a file path).
+function hasHtmlSignature(cfg) {
+  return !!(cfg && (cfg.signatureHtml || cfg.signatureHtmlPath));
+}
+
+// Plain text -> minimal safe HTML (escaped, newlines -> <br>).
+function textToHtml(s) {
+  return esc(s || '').replace(/\n/g, '<br>');
+}
+
 // Resolve the {body, html} pair into the text/html fields of a message. If html is given we always
-// include a plain-text alternative (derived if not supplied) so the mail renders in any client.
-function bodyParts({ body, html }) {
-  if (html) return { html, text: body || htmlToText(html) };
-  return { text: body || '' };
+// include a plain-text alternative. And if the agent composed PLAIN text but an HTML signature is
+// configured, we auto-upgrade to HTML — wrapping the plain body — so the formatted signature always
+// rides along, whatever the agent chose. (Set no HTML signature to keep plain-text emails plain.)
+function bodyParts(a, cfg) {
+  if (a.html) return { html: a.html, text: a.body || htmlToText(a.html) };
+  if (hasHtmlSignature(cfg)) return { html: textToHtml(a.body || ''), text: a.body || '' };
+  return { text: a.body || '' };
 }
 
 // Minimal HTML-escape for dropping plain text into an HTML context safely.
@@ -290,7 +303,7 @@ function withSigHtml(cfg, htmlBody) {
 
 // Map new-mail args to a nodemailer/MailComposer message, with the signature appended.
 function toMessage(a, cfg) {
-  const parts = bodyParts(a);
+  const parts = bodyParts(a, cfg);
   parts.text = withSigText(cfg, parts.text || '');
   if (parts.html != null) parts.html = withSigHtml(cfg, parts.html);
   const msg = { to: a.to, subject: a.subject, ...parts };
@@ -333,8 +346,10 @@ async function buildReply(cfg, { uid, mailbox, body, html, all }) {
     references: threadReferences(parsed),
   };
   // Signature sits after your reply text but ABOVE the quoted original — where a sign-off belongs.
-  if (html) {
-    message.html = `${withSigHtml(cfg, html)}${quoteHtml(parsed)}`;
+  // Auto-upgrade a plain reply to HTML when an HTML signature is configured, so it's formatted.
+  if (html || hasHtmlSignature(cfg)) {
+    const bodyHtml = html || textToHtml(body || '');
+    message.html = `${withSigHtml(cfg, bodyHtml)}${quoteHtml(parsed)}`;
     message.text = htmlToText(message.html);
   } else {
     message.text = `${withSigText(cfg, body || '')}${quoteOriginal(parsed)}`;
@@ -373,10 +388,10 @@ async function buildForward(cfg, { uid, mailbox, to, body, html }) {
       contentType: a.contentType,
     })),
   };
-  if (html) {
+  if (html || hasHtmlSignature(cfg)) {
     const headerHtml = headerLines.map(esc).join('<br>');
     const orig = parsed.html || esc(parsed.text || '').replace(/\n/g, '<br>');
-    const note = withSigHtml(cfg, html || ''); // your note + signature, above the forwarded block
+    const note = withSigHtml(cfg, html || textToHtml(body || '')); // your note + signature, above the forward
     message.html = `${note ? note + '<br><br>' : ''}${headerHtml}<br><br>${orig}`;
     message.text = htmlToText(message.html);
   } else {

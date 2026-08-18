@@ -138,6 +138,10 @@ HTML signature used on HTML emails. Set either or both — if only one is given,
 **`signatureHtmlPath` is live** — the file is re-read on every send, so editing it changes what goes out
 on your next email, no restart. Keep your signature in one HTML file and it stays in sync everywhere.
 
+**With an HTML signature set, emails auto-upgrade to HTML.** Even when the agent composes plain text, the
+message is wrapped in minimal HTML so your *formatted* signature always appears — you never get a plain
+draft with a plain-text sign-off. (No HTML signature configured → plain-text emails stay plain.)
+
 **Missing-signature guard.** If you've set a `signatureHtmlPath` and the file can't be read at send time
 (moved, renamed, deleted), the tool **refuses to send** rather than quietly firing off an unsigned email —
 with a clear message telling you to restore the file or fix the path. Set `"requireSignature": false` to
